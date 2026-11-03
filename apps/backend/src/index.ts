@@ -1,9 +1,9 @@
 import { buildApp } from './app.js';
 import { env } from './config/env.js';
 
-async function start() {
-  const app = buildApp();
+const app = buildApp();
 
+async function start() {
   try {
     const address = await app.listen({
       port: env.PORT,
@@ -17,4 +17,10 @@ async function start() {
   }
 }
 
-start();
+// Start listener when running as a standalone server / process
+if (process.env.NODE_ENV !== 'test') {
+  start();
+}
+
+export default app;
+export { app };

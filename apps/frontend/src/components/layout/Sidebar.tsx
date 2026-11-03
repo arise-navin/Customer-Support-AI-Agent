@@ -34,44 +34,12 @@ interface NavSection {
 }
 
 const navSections: NavSection[] = [
-  {
-    title: 'Support Operations',
-    items: [
-      { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-      { name: 'Customer Chat', path: '/chat', icon: MessageSquare, badge: 'Live AI' },
-      { name: 'Customers', path: '/customers', icon: Users },
-      { name: 'Orders & Shipments', path: '/orders', icon: ShoppingBag },
-      { name: 'Refund Management', path: '/refunds', icon: Banknote },
-      { name: 'Support Tickets', path: '/tickets', icon: Ticket },
-      { name: 'Knowledge Base', path: '/knowledge-base', icon: BookOpen }
-    ]
-  },
-  {
-    title: 'Autonomous AI Swarm',
-    items: [
-      { name: 'AI Agents', path: '/agents', icon: Bot, badge: '4 Active' },
-      { name: 'Agent Activity', path: '/activity', icon: Activity },
-      { name: 'Standalone Test Lab', path: '/standalone-test-lab', icon: FlaskConical, badge: '20/20', badgeColor: 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' }
-    ]
-  },
-  {
-    title: 'Signet AI Governance',
-    items: [
-      { name: 'Governance Lab', path: '/signet-governance-lab', icon: ShieldAlert, badge: '20/20', badgeColor: 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20' },
-      { name: 'DLP Events', path: '/dlp-events', icon: CreditCard },
-      { name: 'Policy Decisions', path: '/policy-decisions', icon: FileText },
-      { name: 'Approvals Queue', path: '/approvals', icon: UserCheck },
-      { name: 'Kill Switch', path: '/kill-switch', icon: Skull, badge: 'Emergency', badgeColor: 'bg-destructive/10 text-destructive border border-destructive/20' },
-      { name: 'Evidence Explorer', path: '/evidence-explorer', icon: FileCheck2 },
-      { name: 'Signet Settings', path: '/signet-settings', icon: Server }
-    ]
-  },
-  {
-    title: 'System',
-    items: [
-      { name: 'Settings & Models', path: '/settings', icon: Settings }
-    ]
-  }
+  { title: 'AI Support', items: [
+    { name: 'AI Agents', path: '/', icon: Bot },
+    { name: 'Customer Chat', path: '/chat', icon: MessageSquare },
+    { name: 'Agent Activity', path: '/activity', icon: Activity },
+    { name: 'Settings & Models', path: '/settings', icon: Settings }
+  ] }
 ];
 
 export function Sidebar() {
@@ -87,9 +55,9 @@ export function Sidebar() {
           </div>
           <div>
             <div className="font-bold text-base tracking-tight flex items-center gap-1.5">
-              <span>Signet</span>
+              <span>AI Support</span>
               <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                LAB
+                AI
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground -mt-0.5">Customer Support AI</p>
@@ -138,18 +106,18 @@ export function Sidebar() {
           ))}
         </div>
 
-        {/* Ollama & Signet Status Footer */}
+        {/* Engine Footer */}
         <div className="p-3 border-t border-border/80 shrink-0 bg-card/80">
           <div className="p-2.5 rounded-xl bg-secondary/50 border border-border/60">
             <div className="flex items-center justify-between text-xs font-medium text-foreground mb-1">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                Ollama + Signet
+                Ollama
               </span>
-              <span className="text-[10px] font-mono text-muted-foreground">Governed</span>
+              <span className="text-[10px] font-mono text-muted-foreground">Direct</span>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Fail-closed policy gateway active.
+              Four customer support agents.
             </p>
           </div>
         </div>

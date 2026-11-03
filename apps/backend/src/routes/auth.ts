@@ -21,7 +21,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     if (credentials.username !== 'admin' || !timingSafeEqual(passwordHash, expectedHash)) {
       return reply.code(401).send({ message: 'Invalid username or password' });
     }
-    const token = await reply.jwtSign({ id: 'admin-system-user', email: 'admin@signetlab.internal', role: 'ADMIN', tenantId: env.SIGNET_TENANT_ID });
+    const token = await reply.jwtSign({ id: 'admin-system-user', email: 'admin@support.internal', role: 'ADMIN', tenantId: env.TENANT_ID });
     reply.setCookie('support_session', token, {
       path: '/', httpOnly: true, sameSite: 'strict', secure: env.NODE_ENV === 'production', maxAge: 8 * 60 * 60
     });

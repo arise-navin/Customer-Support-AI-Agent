@@ -16,7 +16,7 @@ test('admin login, protected routes, persistent session and logout', async ({ pa
     headers: { cookie: 'support_session=invalid' }
   });
   expect(invalidCookie.status()).toBe(401);
-  await page.goto(`${baseUrl}/customers`);
+  await page.goto(`${baseUrl}/agents`);
   await expect(page.locator('#login-submit')).toBeVisible();
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('incorrect');
@@ -42,7 +42,7 @@ test('support data, system health and real model inference', async ({ request })
   const baseUrl = process.env.TEST_BASE_URL || 'http://localhost:5173';
   const login = await request.post(`${baseUrl}/api/v1/auth/login`, { data: { username: 'admin', password: 'admin' } });
   expect(login.status()).toBe(200);
-  const endpoints = ['/customers?limit=1', '/orders?limit=1', '/tickets?limit=1', '/refunds?limit=1', '/knowledge-base', '/agents', '/dashboard/metrics', '/ollama/models'];
+  const endpoints = ['/customers?limit=1', '/orders?limit=1', '/tickets?limit=1', '/refunds?limit=1', '/knowledge-base', '/agents', '/agents/executions', '/ollama/models'];
   await Promise.all(endpoints.map(async (endpoint) => {
     const response = await request.get(`${baseUrl}/api/v1${endpoint}`);
     expect(response.status(), endpoint).toBe(200);
@@ -55,4 +55,35 @@ test('support data, system health and real model inference', async ({ request })
   });
   expect(inference.status(), await inference.text()).toBe(200);
   expect(await inference.json()).toMatchObject({ success: true });
+});
+
+
+test('four agent cards expose tracking and persistent pause, stop and activation controls', async ({ page }) => {
+  test.setTimeout(60000);
+  const baseUrl = process.env.TEST_BASE_URL || 'http://localhost:5173';
+  await page.goto(baseUrl);
+  await page.locator('#username').fill('admin');
+  await page.locator('#password').fill('admin');
+  await page.locator('#login-submit').click();
+  await expect(page.getByTestId(/^agent-.*-00[1-4]$/)).toHaveCount(4);
+  const id = 'support-agent-001';
+  const card = page.getByTestId(`agent-${id}`);
+  try {
+    await page.getByTestId(`pause-${id}`).click();
+    await expect(card).toContainText('PAUSED');
+    await page.reload();
+    await expect(card).toContainText('PAUSED');
+    await page.getByTestId(`stop-${id}`).click();
+    await expect(card).toContainText('STOPPED');
+    await page.getByTestId(`activate-${id}`).click();
+    await expect(card).toContainText('ACTIVE');
+    await page.getByTestId(`track-${id}`).click();
+    await expect(page.locator('#agent-message')).toBeVisible();
+    await expect(page.getByTestId('detail-stop')).toBeVisible();
+    await page.getByRole('button', { name: 'Close agent details', exact: true }).click();
+    await expect(page.locator('#agent-message')).toHaveCount(0);
+  } finally {
+    const response = await page.request.post(`${baseUrl}/api/v1/agents/${id}/activate`, { data: {} });
+    expect(response.status()).toBe(200);
+  }
 });

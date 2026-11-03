@@ -1,25 +1,25 @@
 {
-  "name": "signet-customer-support-lab",
+  "name": "customer-support-ai-agent",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Multi-agent Customer Support AI application with Signet Governance lab",
+  "description": "Four customer support AI agents with REST API tracking and controls",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
     "dev": "concurrently -k -p \"[{name}]\" -n \"DB,BACKEND,FRONTEND\" -c \"cyan,green,magenta\" \"npm run db:start\" \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "npm run dev --workspace=@signet/backend",
-    "dev:frontend": "npm run dev --workspace=@signet/frontend",
+    "dev:backend": "npm run dev --workspace=@support/backend",
+    "dev:frontend": "npm run dev --workspace=@support/frontend",
     "db:start": "node scripts/start-db.js",
     "db:stop": "node scripts/stop-db.js",
-    "db:migrate": "npm run migrate --workspace=@signet/database",
-    "db:generate": "npm run generate --workspace=@signet/database",
-    "db:seed": "npm run seed --workspace=@signet/database",
+    "db:migrate": "npm run migrate --workspace=@support/database",
+    "db:generate": "npm run generate --workspace=@support/database",
+    "db:seed": "npm run seed --workspace=@support/database",
     "db:status": "node scripts/check-db.js",
     "build": "npm run build --workspaces --if-present",
-    "vercel-build": "prisma generate --schema=./prisma/schema.prisma && npm run build --workspace=@signet/frontend",
+    "vercel-build": "prisma generate --schema=./prisma/schema.prisma && npm run build --workspace=@support/frontend",
     "test": "vitest run",
     "test:e2e": "playwright test tests/auth.spec.mjs",
     "test:watch": "vitest"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildApp } from '../apps/backend/src/app.js';
-import { prisma } from '@signet/database';
+import { prisma } from '@support/database';
 
 describe('Phase 2 Customer Support Business System Tests', () => {
   const app = buildApp();

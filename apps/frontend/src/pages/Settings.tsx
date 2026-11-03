@@ -4,7 +4,6 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '../lib/api';
 
 export function Settings() {
-  const [mode, setMode] = useState('DIRECT_OLLAMA');
   const [selectedModel, setSelectedModel] = useState('beam:cloud');
   const [testPrompt, setTestPrompt] = useState('What are the store hours for customer support?');
   const [testResult, setTestResult] = useState<any | null>(null);
@@ -53,7 +52,7 @@ export function Settings() {
             Ollama Model & System Settings
           </h1>
           <p className="text-sm text-muted-foreground">
-            Manage local Ollama model execution, inference benchmarks, and Signet governance mode.
+            Check the Ollama connection and test model responses.
           </p>
         </div>
 
@@ -216,56 +215,7 @@ export function Settings() {
           </div>
         </div>
 
-        {/* Execution Mode Card */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
-              <Shield className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-base text-foreground">AI Execution Mode</h3>
-              <p className="text-xs text-muted-foreground">
-                Control whether agent requests execute directly against Ollama or route through Signet
-              </p>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {[
-              {
-                id: 'DIRECT_OLLAMA',
-                title: 'DIRECT_OLLAMA',
-                desc: 'Standalone direct mode. Agents query local Ollama model directly with application-level authorization.'
-              },
-              {
-                id: 'SIGNET_MOCK',
-                title: 'SIGNET_MOCK',
-                desc: 'Simulated Signet gateway mode. Emulates policy evaluation and certificates.'
-              },
-              {
-                id: 'SIGNET_REAL',
-                title: 'SIGNET_REAL',
-                desc: 'Production Signet gateway mode. Enforces certificates, DLP, and kill-switch.'
-              }
-            ].map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setMode(m.id)}
-                className={`p-4 rounded-xl border text-left transition-all ${
-                  mode === m.id
-                    ? 'border-primary bg-primary/5 shadow-sm'
-                    : 'border-border bg-secondary/20 hover:border-border/80'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold text-xs text-foreground font-mono">{m.title}</span>
-                  {mode === m.id && <CheckCircle2 className="w-4 h-4 text-primary" />}
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">{m.desc}</p>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

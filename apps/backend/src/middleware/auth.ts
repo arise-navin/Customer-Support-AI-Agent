@@ -60,9 +60,9 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
   if (env.NODE_ENV === 'test' && customRole) {
     request.user = {
       id: customCustomerId || 'custom-user-id',
-      email: `${customRole.toLowerCase()}@signetlab.internal`,
+      email: `${customRole.toLowerCase()}@support.internal`,
       role: customRole.toUpperCase(),
-      tenantId: env.SIGNET_TENANT_ID
+      tenantId: env.TENANT_ID
     };
     return;
   }
@@ -71,9 +71,9 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
   if (apiKeyHeader && apiKeyHeader === env.API_SECRET_KEY) {
     request.user = {
       id: 'admin-system-user',
-      email: 'admin@signetlab.internal',
+      email: 'admin@support.internal',
       role: 'ADMIN',
-      tenantId: env.SIGNET_TENANT_ID
+      tenantId: env.TENANT_ID
     };
     return;
   }
@@ -84,9 +84,9 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
     if (token === env.API_SECRET_KEY) {
       request.user = {
         id: 'dev-authenticated-user',
-        email: 'user@signetlab.internal',
+        email: 'user@support.internal',
         role: 'AGENT',
-        tenantId: env.SIGNET_TENANT_ID
+        tenantId: env.TENANT_ID
       };
       return;
     }
@@ -96,9 +96,9 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
   if (env.NODE_ENV === 'test') {
     request.user = {
       id: 'dev-default-user',
-      email: 'dev@signetlab.internal',
+      email: 'dev@support.internal',
       role: 'ADMIN',
-      tenantId: env.SIGNET_TENANT_ID
+      tenantId: env.TENANT_ID
     };
     return;
   }

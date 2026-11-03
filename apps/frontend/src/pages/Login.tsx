@@ -31,8 +31,8 @@ export function Login() {
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 shadow-xl space-y-5">
         <ShieldCheck className="h-10 w-10 text-primary" aria-hidden="true" />
         <div>
-          <h1 className="text-2xl font-bold">Sign in to Signet</h1>
-          <p className="text-sm text-muted-foreground mt-2">Customer Support AI Agent Lab</p>
+          <h1 className="text-2xl font-bold">Sign in to AI Support</h1>
+          <p className="text-sm text-muted-foreground mt-2">Customer Support AI Agents</p>
         </div>
         <div className="space-y-2">
           <label htmlFor="username" className="block text-sm font-medium">Username</label>

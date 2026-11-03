@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildApp } from '../apps/backend/src/app.js';
-import { prisma } from '@signet/database';
-import { agentRegistry, agentRunner, agentOrchestrator } from '@signet/agents';
-import { toolRegistry } from '@signet/tools';
+import { prisma } from '@support/database';
+import { agentRegistry, agentRunner, agentOrchestrator } from '@support/agents';
+import { toolRegistry } from '@support/tools';
 import { OllamaService } from '../apps/backend/src/services/ollama.service.js';
 
 describe('Phase 6 Standalone Functional & Security Test Suite (ST-001 to ST-020)', () => {

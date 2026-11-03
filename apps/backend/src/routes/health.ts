@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { checkDatabaseConnection } from '@signet/database';
+import { checkDatabaseConnection } from '@support/database';
 import { env } from '../config/env.js';
 import { ollamaService } from '../services/ollama.service.js';
 
@@ -37,7 +37,7 @@ export async function healthRoutes(fastify: FastifyInstance) {
       databaseLatencyMs: dbStatus.latencyMs,
       ollama: ollamaStatus,
       activeModel: env.OLLAMA_MODEL,
-      executionMode: env.AI_EXECUTION_MODE
+      executionMode: 'DIRECT_OLLAMA'
     });
   });
 }

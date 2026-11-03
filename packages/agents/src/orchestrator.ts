@@ -1,6 +1,6 @@
-import { prisma } from '@signet/database';
+import { prisma } from '@support/database';
 import { agentRegistry, agentRunner, AgentRunResult } from './index.js';
-import { toolRegistry } from '@signet/tools';
+import { toolRegistry } from '@support/tools';
 
 export interface OrchestrationEvent {
   type: 'agent_selected' | 'handoff' | 'tool_call' | 'approval_required' | 'chunk' | 'done' | 'error';
@@ -204,12 +204,10 @@ export class AgentOrchestrator {
     }
 
     // Check if any tool triggered pending supervisor review / approval
-    const approvalRequired = runResult.toolCallsExecuted.some(
-      (tc) =>
-        tc.result?.requiresSupervisorApproval === true ||
-        tc.result?.status === 'QUEUED_FOR_SUPERVISOR' ||
-        tc.result?.status === 'PENDING'
-    );
+    const approvalRequired = runResult.toolCallsExecuted.some(({ result }) => {
+      if (result === null || typeof result !== 'object' || Array.isArray(result)) return false;
+      return result.requiresSupervisorApproval === true || result.status === 'QUEUED_FOR_SUPERVISOR' || result.status === 'PENDING';
+    });
 
     if (approvalRequired) {
       emit({

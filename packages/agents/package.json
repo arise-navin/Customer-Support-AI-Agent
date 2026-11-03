@@ -1,5 +1,5 @@
 {
-  "name": "@signet/agents",
+  "name": "@support/agents",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -17,10 +17,9 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@signet/database": "*",
-    "@signet/shared": "*",
-    "@signet/tools": "*",
-    "@signet/signet-adapter": "*",
+    "@support/database": "*",
+    "@support/shared": "*",
+    "@support/tools": "*",
     "zod": "^3.24.2"
   },
   "devDependencies": {

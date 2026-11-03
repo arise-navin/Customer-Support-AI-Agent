@@ -16,9 +16,6 @@ import { knowledgeBaseRoutes } from './routes/knowledgeBase.js';
 import { ollamaRoutes } from './routes/ollama.js';
 import { agentRoutes } from './routes/agents.js';
 import { chatRoutes } from './routes/chat.js';
-import { testLabRoutes } from './routes/testLab.js';
-import { signetRoutes } from './routes/signet.js';
-import { dashboardRoutes } from './routes/dashboard.js';
 
 export function buildApp() {
   const app = Fastify({
@@ -84,9 +81,6 @@ export function buildApp() {
       v1.register(ollamaRoutes);
       v1.register(agentRoutes);
       v1.register(chatRoutes);
-      v1.register(testLabRoutes);
-      v1.register(signetRoutes);
-      v1.register(dashboardRoutes);
     },
     { prefix: '/api/v1' }
   );

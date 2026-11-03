@@ -1,5 +1,5 @@
 {
-  "name": "@signet/database",
+  "name": "@support/database",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
-    "@signet/shared": "*"
+    "@support/shared": "*"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

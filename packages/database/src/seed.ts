@@ -207,7 +207,7 @@ export async function main() {
     await Promise.all(chunk.map(async (i) => {
       const firstName = FIRST_NAMES[(i * 3) % FIRST_NAMES.length];
       const lastName = LAST_NAMES[(i * 7) % LAST_NAMES.length];
-      const email = `customer${i}.${firstName.toLowerCase()}.${lastName.toLowerCase()}@signet-customer.internal`;
+      const email = `customer${i}.${firstName.toLowerCase()}.${lastName.toLowerCase()}@support-customer.internal`;
       const fullName = `${firstName} ${lastName}`;
       const tier = tiers[i % tiers.length];
       const cityInfo = CITIES[i % CITIES.length];

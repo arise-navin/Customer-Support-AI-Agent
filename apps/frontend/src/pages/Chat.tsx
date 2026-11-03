@@ -239,7 +239,7 @@ export function Chat() {
           {messages.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground max-w-md mx-auto space-y-2 mt-8">
               <Sparkles className="w-8 h-8 mx-auto text-primary opacity-60" />
-              <h3 className="font-bold text-base text-foreground">Welcome to Signet Customer Support AI Lab</h3>
+              <h3 className="font-bold text-base text-foreground">Welcome to Customer Support AI</h3>
               <p className="text-xs leading-relaxed">
                 Send a question or select a prompt below. The orchestrator will route your request directly to the appropriate agent persona, execute tools, and handle handoffs.
               </p>

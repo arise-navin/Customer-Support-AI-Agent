@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { prisma } from '@signet/database';
+import { prisma } from '@support/database';
 import { z } from 'zod';
 
 export async function customerRoutes(fastify: FastifyInstance) {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { prisma } from '@signet/database';
+import { prisma } from '@support/database';
 
 export interface ToolContext {
   agentId: string;

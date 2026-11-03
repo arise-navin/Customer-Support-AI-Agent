@@ -11,11 +11,10 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@signet/database": ["packages/database/src/index.ts"],
-      "@signet/shared": ["packages/shared/src/index.ts"],
-      "@signet/agents": ["packages/agents/src/index.ts"],
-      "@signet/tools": ["packages/tools/src/index.ts"],
-      "@signet/signet-adapter": ["packages/signet-adapter/src/index.ts"]
+      "@support/database": ["packages/database/src/index.ts"],
+      "@support/shared": ["packages/shared/src/index.ts"],
+      "@support/agents": ["packages/agents/src/index.ts"],
+      "@support/tools": ["packages/tools/src/index.ts"]
     }
   }
 }

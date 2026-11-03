@@ -50,6 +50,7 @@ export interface GenerateOptions {
   temperature?: number;
   timeoutMs?: number;
   correlationId?: string;
+  signal?: AbortSignal;
 }
 
 export interface GenerateResult {
@@ -239,7 +240,7 @@ export class OllamaService {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
-        signal: controller.signal
+        signal: options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal
       });
 
       clearTimeout(timer);
@@ -278,6 +279,7 @@ export class OllamaService {
       };
     } catch (err: any) {
       clearTimeout(timer);
+      options.signal?.throwIfAborted();
       if (err.name === 'AbortError') {
         throw new Error(`Ollama request timed out after ${timeoutMs}ms (Correlation: ${options.correlationId || 'none'})`);
       }

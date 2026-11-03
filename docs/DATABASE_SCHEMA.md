@@ -42,7 +42,7 @@ The schema is partitioned into seven logical domains:
 - **`ticket_messages`:** Communication logs. Fields: `id`, `ticketId`, `senderType` (`CUSTOMER` | `AGENT` | `SYSTEM`), `senderId`, `message`.
 - **`knowledge_base_articles`:** Public policy repo. Fields: `id`, `tenantId`, `title`, `slug`, `category`, `content`, `tags`, `isPublished`.
 
-### Multi-Agent Swarm & Governance Audit
+### Multi-Agent Agents & Execution Logs
 - **`ai_agents`:** Agent registry. Fields: `id`, `name`, `riskTier`, `autonomyLevel`, `status` (`ACTIVE` | `IDLE` | `PAUSED` | `QUARANTINED` | `KILLED`), `model`, `description`.
 - **`agent_executions`:** Historical run trace. Fields: `id`, `agentId`, `conversationId`, `prompt`, `response`, `durationMs`, `executionMode`, `promptTokens`, `completionTokens`, `governanceDecision`.
 - **`agent_tool_calls`:** Granular tool execution audit. Fields: `id`, `executionId`, `toolName`, `arguments`, `result`, `status`, `durationMs`.

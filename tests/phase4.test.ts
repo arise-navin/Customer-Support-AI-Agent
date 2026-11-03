@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildApp } from '../apps/backend/src/app.js';
-import { agentRegistry, agentRunner, agentStateManager } from '@signet/agents';
-import { toolRegistry } from '@signet/tools';
-import { prisma } from '@signet/database';
+import { agentRegistry, agentRunner, agentStateManager } from '@support/agents';
+import { toolRegistry } from '@support/tools';
+import { prisma } from '@support/database';
 
 describe('Phase 4 Four AI Agents System Tests', () => {
   const app = buildApp();

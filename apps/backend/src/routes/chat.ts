@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { prisma } from '@signet/database';
-import { agentOrchestrator } from '@signet/agents';
+import { prisma } from '@support/database';
+import { agentOrchestrator } from '@support/agents';
 import { ollamaService } from '../services/ollama.service.js';
 import { z } from 'zod';
 
@@ -117,22 +117,13 @@ export async function chatRoutes(fastify: FastifyInstance) {
       return;
     }
 
-    // Non-streaming response
-    try {
-      const result = await agentOrchestrator.dispatchMessage({
-        conversationId: body.conversationId,
-        customerId: body.customerId,
-        userMessage: body.message,
-        modelService: ollamaService
-      });
-
-      return reply.status(200).send(result);
-    } catch (err: any) {
-      return reply.status(500).send({
-        statusCode: 500,
-        error: 'Orchestration Error',
-        message: err.message
-      });
-    }
+    // Non-streaming errors use the shared HTTP error handler.
+    const result = await agentOrchestrator.dispatchMessage({
+      conversationId: body.conversationId,
+      customerId: body.customerId,
+      userMessage: body.message,
+      modelService: ollamaService
+    });
+    return reply.status(200).send(result);
   });
 }

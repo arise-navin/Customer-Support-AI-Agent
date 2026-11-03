@@ -1,5 +1,5 @@
 {
-  "name": "@signet/tools",
+  "name": "@support/tools",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -17,8 +17,8 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@signet/database": "*",
-    "@signet/shared": "*",
+    "@support/database": "*",
+    "@support/shared": "*",
     "zod": "^3.24.2"
   },
   "devDependencies": {

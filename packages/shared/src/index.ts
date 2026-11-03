@@ -188,12 +188,12 @@ export interface KnowledgeBaseArticle {
 }
 
 // ==========================================
-// AI Agents & Governance
+// AI Agents
 // ==========================================
 export type AgentRiskTier = 'T1' | 'T2' | 'T3';
 export type AgentAutonomyLevel = 'SUPERVISED' | 'SEMI_AUTONOMOUS' | 'FULLY_AUTONOMOUS';
 export type AgentStatus = 'ACTIVE' | 'IDLE' | 'PAUSED' | 'QUARANTINED' | 'KILLED';
-export type ExecutionMode = 'DIRECT_OLLAMA' | 'SIGNET_MOCK' | 'SIGNET_REAL' | 'SIGNET_HYBRID_EDGE';
+export type ExecutionMode = 'DIRECT_OLLAMA';
 
 export interface AgentConfig {
   id: string;
@@ -219,7 +219,6 @@ export interface AgentExecutionRecord {
   tokenUsage?: { promptTokens: number; completionTokens: number; totalTokens: number };
   executionMode: ExecutionMode;
   governanceDecision?: 'ALLOW' | 'BLOCK' | 'QUARANTINE';
-  signetCorrelationId?: string;
   createdAt: string;
 }
 
@@ -291,101 +290,4 @@ export const SendChatMessageSchema = z.object({
   message: z.string().min(1),
   preferredAgentId: z.string().optional()
 });
-
-// ==========================================
-// Signet Governance & Gateway Types (Phase 7 & 8)
-// ==========================================
-export interface SignetCertificateValidity {
-  issuedAt: string;
-  expiresAt: string;
-  status: 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'QUARANTINED' | 'KILLED';
-  revocationReason?: string;
-}
-
-export interface SignetAgentCertificate {
-  agentId: string;
-  workloadIdentity: string;
-  certificateId: string;
-  riskTier: 'T1' | 'T2' | 'T3' | 'T4';
-  autonomyLevel: 'L1' | 'L2' | 'L3' | 'L4';
-  allowedModel: string;
-  allowedTools: string[];
-  dataClasses: string[];
-  limits: {
-    maxRequestsPerMinute: number;
-    maxTokensPerTurn: number;
-  };
-  validity: SignetCertificateValidity;
-}
-
-export interface SignetPolicyDecision {
-  allowed: boolean;
-  decision: 'ALLOW' | 'DENY' | 'REQUIRE_APPROVAL' | 'QUARANTINE';
-  reason: string;
-  ruleId?: string;
-  action: string;
-  agentId: string;
-  correlationId: string;
-  simulated: boolean;
-  dlpDetected: boolean;
-  dlpCategory?: 'PAYMENT_CARD' | 'API_TOKEN' | 'PII' | 'PROMPT_INJECTION' | 'CREDENTIAL';
-  maskedContent?: string;
-  evidenceRef?: string;
-  latencyMs: number;
-  timestamp: string;
-}
-
-export interface SignetGatewayConfig {
-  executionMode: ExecutionMode;
-  gatewayUrl: string;
-  tenantId: string;
-  enforcementRequired: boolean;
-  isConnected: boolean;
-  lastPingMs?: number;
-  lastError?: string | null;
-  agentCertificates: SignetAgentCertificate[];
-}
-
-// ==========================================
-// Signet Hybrid Edge (MID Server style on-prem runner)
-// ==========================================
-export interface SignetHybridEdgeConfig {
-  enabled: boolean;
-  saasEndpoint: string;
-  edgeRunnerId: string;
-  hostname: string;
-  tenantId: string;
-  tunnelStatus: 'CONNECTED' | 'DISCONNECTED' | 'DEGRADED';
-  heartbeatIntervalSec: number;
-  lastHeartbeatAt?: string;
-  lastSyncLatencyMs?: number;
-  cachedBundleVersion: string;
-  queuedMetadataCount: number;
-  dataResidencyEnforced: boolean;
-}
-
-export interface HybridTelemetryDigest {
-  edgeRunnerId: string;
-  tenantId: string;
-  timestamp: string;
-  periodStart: string;
-  periodEnd: string;
-  transactionCount: number;
-  allowedCount: number;
-  blockedCount: number;
-  quarantineCount: number;
-  avgLatencyMs: number;
-  merkleRootHash: string;
-  sampleRuleIds: string[];
-}
-
-export interface HybridCloudCommand {
-  id: string;
-  action: 'KILL_AGENT' | 'QUARANTINE_AGENT' | 'ACTIVATE_AGENT' | 'UPDATE_POLICY_BUNDLE' | 'PING';
-  agentId?: string;
-  reason?: string;
-  issuedAt: string;
-  payload?: any;
-}
-
 

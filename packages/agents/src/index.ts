@@ -1,9 +1,6 @@
 import { z } from 'zod';
-import crypto from 'crypto';
-import { prisma } from '@signet/database';
-import { ExecutionMode } from '@signet/shared';
-import { toolRegistry, ToolDefinition, ToolContext } from '@signet/tools';
-import { signetAdapterManager } from '@signet/signet-adapter';
+import { prisma, Prisma } from '@support/database';
+import { toolRegistry, ToolContext } from '@support/tools';
 
 export interface AgentDefinition {
   id: string;
@@ -133,371 +130,199 @@ export class AgentRegistry {
 
 export const agentRegistry = new AgentRegistry();
 
-// ==========================================
-// 2. AGENT STATE MANAGER
-// ==========================================
-export class AgentStateManager {
-  async getStatus(agentId: string): Promise<'ACTIVE' | 'IDLE' | 'PAUSED' | 'QUARANTINED' | 'KILLED'> {
-    const dbAgent = await prisma.aiAgent.findUnique({
-      where: { id: agentId },
-      select: { status: true }
-    });
-    return (dbAgent?.status as any) || 'ACTIVE';
-  }
 
-  async setStatus(
-    agentId: string,
-    status: 'ACTIVE' | 'IDLE' | 'PAUSED' | 'QUARANTINED' | 'KILLED',
-    reason?: string
-  ) {
-    const data: any = { status };
-    if (status === 'KILLED') {
-      data.killedAt = new Date();
-      data.killedReason = reason || 'Administrative kill switch invoked';
-    } else if (status === 'ACTIVE') {
-      data.killedAt = null;
-      data.killedReason = null;
-    } else if (status === 'QUARANTINED') {
-      data.killedReason = reason || 'Quarantined due to policy violation or security check';
-    }
+export type AgentStatus = 'ACTIVE' | 'IDLE' | 'PAUSED' | 'QUARANTINED' | 'KILLED';
+const statusSchema = z.enum(['ACTIVE', 'IDLE', 'PAUSED', 'QUARANTINED', 'KILLED']);
 
-    await prisma.aiAgent.update({
-      where: { id: agentId },
-      data
-    });
-  }
+function agentError(message: string, statusCode: number): Error & { statusCode: number } {
+  return Object.assign(new Error(message), { name: 'AgentExecutionError', statusCode });
+}
 
-  async kill(agentId: string, reason?: string) {
-    return this.setStatus(agentId, 'KILLED', reason);
-  }
+async function getStatus(agentId: string): Promise<AgentStatus> {
+  const agent = await prisma.aiAgent.findUnique({ where: { id: agentId }, select: { status: true } });
+  if (!agent) throw agentError(`Agent '${agentId}' does not exist in the database.`, 404);
+  return statusSchema.parse(agent.status);
+}
 
-  async quarantine(agentId: string, reason?: string) {
-    return this.setStatus(agentId, 'QUARANTINED', reason);
-  }
-
-  async activate(agentId: string) {
-    return this.setStatus(agentId, 'ACTIVE');
-  }
-
-  async generateCredentials(agentId: string): Promise<{ clientId: string; clientSecret: string }> {
-    const shortName = agentId.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-    const randomSuffix = crypto.randomBytes(4).toString('hex');
-    const clientId = `agt_cli_${shortName}_${randomSuffix}`;
-    const clientSecret = `agt_sec_${crypto.randomBytes(24).toString('hex')}`;
-
-    await prisma.aiAgent.update({
-      where: { id: agentId },
-      data: {
-        clientId,
-        clientSecret
-      }
-    });
-
-    return { clientId, clientSecret };
-  }
-
-  async revokeCredentials(agentId: string): Promise<void> {
-    await prisma.aiAgent.update({
-      where: { id: agentId },
-      data: {
-        clientId: null,
-        clientSecret: null
-      }
-    });
-  }
-
-  async verifyCredentials(agentId: string, clientId: string, clientSecret: string): Promise<boolean> {
-    const agent = await prisma.aiAgent.findUnique({
-      where: { id: agentId },
-      select: { clientId: true, clientSecret: true }
-    });
-    if (!agent || !agent.clientId || !agent.clientSecret) return false;
-    return agent.clientId === clientId && agent.clientSecret === clientSecret;
+async function ensureActive(agentId: string): Promise<void> {
+  const status = await getStatus(agentId);
+  if (status !== 'ACTIVE' && status !== 'IDLE') {
+    throw agentError(`Execution blocked: Agent '${agentId}' is ${status}. Activate it before running another request.`, 403);
   }
 }
 
-export const agentStateManager = new AgentStateManager();
+async function setStatus(agentId: string, status: AgentStatus, reason: string | undefined): Promise<void> {
+  await getStatus(agentId);
+  await prisma.$transaction([
+    prisma.aiAgent.update({
+      where: { id: agentId },
+      data: { status, killedAt: status === 'KILLED' ? new Date() : null, killedReason: reason ?? null }
+    }),
+    ...(['PAUSED', 'KILLED', 'QUARANTINED'].includes(status) ? [prisma.agentExecution.updateMany({
+      where: { agentId, governanceDecision: 'RUNNING' },
+      data: { governanceDecision: 'STOPPED', response: reason ?? `Agent ${status}` }
+    })] : [])
+  ]);
+}
 
-// ==========================================
-// 3. AGENT RUNNER
-// ==========================================
+export const agentStateManager = {
+  getStatus,
+  setStatus,
+  kill: (id: string, reason: string | undefined): Promise<void> => setStatus(id, 'KILLED', reason),
+  quarantine: (id: string, reason: string | undefined): Promise<void> => setStatus(id, 'QUARANTINED', reason),
+  activate: (id: string): Promise<void> => setStatus(id, 'ACTIVE', undefined)
+};
+
+type JsonValue = Prisma.JsonValue;
+const jsonSchema: z.ZodType<JsonValue> = z.lazy(() => z.union([
+  z.string(), z.number(), z.boolean(), z.null(), z.array(jsonSchema), z.record(jsonSchema)
+]));
+const modelResponseSchema = z.object({
+  content: z.string(),
+  thinking: z.string().optional(),
+  toolCalls: z.array(z.object({ name: z.string(), arguments: z.record(jsonSchema) })).optional(),
+  tokenUsage: z.object({ promptTokens: z.number(), completionTokens: z.number(), totalTokens: z.number() }).optional()
+});
+
+type ModelResponse = z.infer<typeof modelResponseSchema>;
+interface ModelOptions {
+  model: string;
+  messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }>;
+  tools?: ReturnType<typeof toolRegistry.getOllamaDefinitions>;
+  signal?: AbortSignal;
+}
 export interface AgentRunOptions {
   agentId: string;
   userMessage: string;
-  conversationHistory?: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }>;
+  conversationHistory?: ModelOptions['messages'];
   authenticatedCustomerId?: string;
   conversationId?: string;
-  executionMode?: ExecutionMode;
-  clientId?: string;
-  clientSecret?: string;
-  modelService: {
-    generateResponse: (options: any) => Promise<any>;
-  };
+  modelService: { generateResponse: (options: ModelOptions) => Promise<ModelResponse> };
 }
-
 export interface AgentRunResult {
+  executionId: string;
   agentId: string;
   agentName: string;
   response: string;
   thinking?: string;
   toolCallsExecuted: Array<{
     name: string;
-    arguments: any;
-    result: any;
+    arguments: Record<string, JsonValue>;
+    result: JsonValue;
     status: 'COMPLETED' | 'BLOCKED' | 'FAILED';
   }>;
   durationMs: number;
-  tokens?: { promptTokens: number; completionTokens: number; totalTokens: number };
-  executionMode?: ExecutionMode;
-  governanceDecision?: any;
-  evidenceRef?: string;
-  simulated?: boolean;
+  tokens?: ModelResponse['tokenUsage'];
 }
 
-export class AgentRunner {
-  async run(options: AgentRunOptions): Promise<AgentRunResult> {
-    const start = Date.now();
-    const agent = agentRegistry.getAgent(options.agentId);
-    if (!agent) {
-      throw new Error(`Agent '${options.agentId}' is not registered in the Agent Registry.`);
-    }
+async function ensureExecutionActive(agentId: string, executionId: string): Promise<void> {
+  await ensureActive(agentId);
+  const execution = await prisma.agentExecution.findUniqueOrThrow({ where: { id: executionId }, select: { governanceDecision: true } });
+  if (execution.governanceDecision === 'STOPPED') throw agentError(`Execution '${executionId}' was stopped. Submit a new request after activating the agent.`, 409);
+}
 
-    const mode = options.executionMode || signetAdapterManager.getMode();
-    const adapter = signetAdapterManager.getAdapter(mode);
-
-    // 1. Certificate and status check via adapter
-    const certCheck = await adapter.validateCertificate(options.agentId);
-    if (!certCheck.valid) {
-      const durationMs = Date.now() - start;
-      return {
-        agentId: agent.id,
-        agentName: agent.name,
-        response: `[Signet Security Blocked] ${certCheck.reason}`,
-        toolCallsExecuted: [],
-        durationMs,
-        executionMode: mode,
-        governanceDecision: { allowed: false, decision: 'DENY', reason: certCheck.reason },
-        simulated: mode === 'SIGNET_MOCK'
-      };
-    }
-
-    // Check status in DB (Kill switch, quarantine, pause) & verify credentials if provided
-    const dbAgent = await prisma.aiAgent.findUnique({
-      where: { id: options.agentId }
-    });
-
-    if (dbAgent) {
-      if (dbAgent.status === 'KILLED') {
-        throw new Error(`Execution blocked: Agent '${options.agentId}' has been terminated by the administrative Kill Switch. (Reason: ${dbAgent.killedReason || 'Manual kill switch triggered'})`);
-      }
-      if (dbAgent.status === 'QUARANTINED') {
-        throw new Error(`Execution blocked: Agent '${options.agentId}' is currently QUARANTINED due to a security violation.`);
-      }
-      if (dbAgent.status === 'PAUSED') {
-        throw new Error(`Execution blocked: Agent '${options.agentId}' is currently PAUSED.`);
-      }
-
-      if (options.clientId || options.clientSecret) {
-        if (!dbAgent.clientId || !dbAgent.clientSecret || dbAgent.clientId !== options.clientId || dbAgent.clientSecret !== options.clientSecret) {
-          throw new Error(`Authentication failed: Invalid clientId or clientSecret for agent '${options.agentId}'.`);
-        }
-      }
-
-      // Update lastActiveAt
-      await prisma.aiAgent.update({
-        where: { id: options.agentId },
-        data: { lastActiveAt: new Date() }
-      }).catch(() => {});
-    }
-
-    // 2. Evaluate model invocation policy with Signet Adapter
-    const llmDecision = await adapter.evaluatePolicy({
-      agentId: options.agentId,
-      action: 'llm_completion',
-      model: agent.model,
-      prompt: options.userMessage,
-      context: {
-        customerId: options.authenticatedCustomerId,
-        conversationId: options.conversationId
-      }
-    });
-
-    if (!llmDecision.allowed) {
-      const durationMs = Date.now() - start;
-      return {
-        agentId: agent.id,
-        agentName: agent.name,
-        response: `[Signet Governance Blocked] ${llmDecision.reason} (Rule: ${llmDecision.ruleId || 'POLICY'}, Evidence: ${llmDecision.evidenceRef || 'none'})`,
-        toolCallsExecuted: [],
-        durationMs,
-        executionMode: mode,
-        governanceDecision: llmDecision,
-        evidenceRef: llmDecision.evidenceRef,
-        simulated: mode === 'SIGNET_MOCK'
-      };
-    }
-
-    // Prepare system prompt with dynamic customer context
-    let dynamicPrompt = agent.systemPrompt;
-    if (options.authenticatedCustomerId) {
-      dynamicPrompt += `\n[CURRENT SESSION CONTEXT: Authenticated Customer ID = ${options.authenticatedCustomerId}]`;
-    }
-
-    // Get allowed tool definitions for this agent
-    const allowedToolDefs = toolRegistry.getOllamaDefinitions(agent.allowedTools);
-
-    const messages = [
-      { role: 'system' as const, content: dynamicPrompt },
-      ...(options.conversationHistory || []),
-      { role: 'user' as const, content: options.userMessage }
-    ];
-
-    // Model invocation through adapter
-    const modelResponse = await options.modelService.generateResponse({
-      model: agent.model,
-      messages,
-      tools: allowedToolDefs.length > 0 ? allowedToolDefs : undefined,
-      correlationId: `run-${options.agentId}-${Date.now()}`
-    });
-
-    const toolCallsExecuted: any[] = [];
-    let finalContent = modelResponse.content || '';
-
-    // Process tool calls if triggered by model
-    if (modelResponse.toolCalls && modelResponse.toolCalls.length > 0) {
-      for (const call of modelResponse.toolCalls) {
-        // Enforce application authorization first: Verify tool is permitted for this agent
-        if (!agentRegistry.isToolAllowed(options.agentId, call.name)) {
-          // Tool is forbidden! Reject execution
-          toolCallsExecuted.push({
-            name: call.name,
-            arguments: call.arguments,
-            result: { error: `Forbidden: Agent '${options.agentId}' is not authorized to execute tool '${call.name}'.` },
-            status: 'BLOCKED'
-          });
-          continue;
-        }
-
-        // Evaluate Signet Tool Policy through Adapter
-        const toolDecision = await adapter.evaluatePolicy({
-          agentId: options.agentId,
-          action: 'tool_execution',
-          toolName: call.name,
-          toolArgs: call.arguments,
-          context: {
-            customerId: options.authenticatedCustomerId,
-            conversationId: options.conversationId
-          }
-        });
-
-        if (!toolDecision.allowed) {
-          toolCallsExecuted.push({
-            name: call.name,
-            arguments: call.arguments,
-            result: {
-              error: `[Signet Governance Blocked] ${toolDecision.reason}`,
-              evidenceRef: toolDecision.evidenceRef,
-              ruleId: toolDecision.ruleId
-            },
-            status: 'BLOCKED'
-          });
-          continue;
-        }
-
-        // Execute authorized tool
-        try {
-          const toolContext: ToolContext = {
-            agentId: options.agentId,
-            authenticatedCustomerId: options.authenticatedCustomerId,
-            tenantId: 'tenant-support-lab-01'
-          };
-
-          const toolResult = await toolRegistry.executeTool(call.name, call.arguments, toolContext);
-
-          toolCallsExecuted.push({
-            name: call.name,
-            arguments: call.arguments,
-            result: toolResult,
-            status: 'COMPLETED'
-          });
-
-          // Second pass: Send tool result back to model to formulate friendly response
-          const followupMessages = [
-            ...messages,
-            { role: 'assistant' as const, content: modelResponse.content || 'Checking details...' },
-            {
-              role: 'user' as const,
-              content: `Tool '${call.name}' returned: ${JSON.stringify(toolResult)}. Formulate a clear, direct, and polite customer response based on this result.`
-            }
-          ];
-
-          const followup = await options.modelService.generateResponse({
-            model: agent.model,
-            messages: followupMessages
-          });
-
-          finalContent = followup.content;
-        } catch (err: any) {
-          toolCallsExecuted.push({
-            name: call.name,
-            arguments: call.arguments,
-            result: { error: err.message },
-            status: 'FAILED'
-          });
-          finalContent = `I attempted to look up that information for you, but encountered a policy or execution limit: ${err.message}`;
-        }
-      }
-    }
-
-    const durationMs = Date.now() - start;
-
-    // Log execution in PostgreSQL
+/** Poll persisted control state so pause/stop also interrupts inference on other API instances. */
+async function generateResponse(options: AgentRunOptions, executionId: string, modelOptions: ModelOptions): Promise<ModelResponse> {
+  await ensureExecutionActive(options.agentId, executionId);
+  const controller = new AbortController();
+  let checking = false;
+  const timer = setInterval(async () => {
+    if (checking) return;
+    checking = true;
     try {
-      const executionRecord = await prisma.agentExecution.create({
-        data: {
-          agentId: options.agentId,
-          conversationId: options.conversationId,
-          prompt: options.userMessage,
-          response: finalContent,
-          durationMs,
-          executionMode: mode,
-          promptTokens: modelResponse.tokenUsage?.promptTokens,
-          completionTokens: modelResponse.tokenUsage?.completionTokens,
-          governanceDecision: llmDecision.decision
-        }
-      });
-
-      for (const tc of toolCallsExecuted) {
-        await prisma.agentToolCall.create({
-          data: {
-            executionId: executionRecord.id,
-            toolName: tc.name,
-            arguments: tc.arguments,
-            result: tc.result,
-            status: tc.status,
-            durationMs: 10
-          }
-        });
-      }
-    } catch {
-      // Non-blocking log failure
+      await ensureExecutionActive(options.agentId, executionId);
+    } catch (error) {
+      controller.abort(error);
+    } finally {
+      checking = false;
     }
-
-    return {
-      agentId: agent.id,
-      agentName: agent.name,
-      response: finalContent,
-      thinking: modelResponse.thinking,
-      toolCallsExecuted,
-      durationMs,
-      tokens: modelResponse.tokenUsage,
-      executionMode: mode,
-      governanceDecision: llmDecision,
-      evidenceRef: llmDecision.evidenceRef,
-      simulated: mode === 'SIGNET_MOCK'
-    };
+  }, 250);
+  try {
+    const result = await options.modelService.generateResponse({ ...modelOptions, signal: controller.signal });
+    controller.signal.throwIfAborted();
+    await ensureExecutionActive(options.agentId, executionId);
+    return modelResponseSchema.parse(result);
+  } catch (error) {
+    if (controller.signal.aborted) throw controller.signal.reason;
+    throw error;
+  } finally {
+    clearInterval(timer);
   }
 }
 
-export const agentRunner = new AgentRunner();
+async function run(options: AgentRunOptions): Promise<AgentRunResult> {
+  const start = Date.now();
+  const agent = agentRegistry.getAgent(options.agentId);
+  if (!agent) throw agentError(`Agent '${options.agentId}' is not registered.`, 404);
+  await ensureActive(agent.id);
+  await prisma.aiAgent.update({ where: { id: agent.id }, data: { lastActiveAt: new Date() } });
+  const execution = await prisma.agentExecution.create({ data: {
+    agentId: agent.id, conversationId: options.conversationId, prompt: options.userMessage,
+    response: '', durationMs: 0, executionMode: 'DIRECT_OLLAMA', governanceDecision: 'RUNNING'
+  } });
+  const toolCallsExecuted: AgentRunResult['toolCallsExecuted'] = [];
+  try {
+    const messages: ModelOptions['messages'] = [
+      { role: 'system', content: agent.systemPrompt + (options.authenticatedCustomerId
+        ? `\n[CURRENT SESSION CONTEXT: Authenticated Customer ID = ${options.authenticatedCustomerId}]` : '') },
+      ...(options.conversationHistory ?? []),
+      { role: 'user', content: options.userMessage }
+    ];
+    const model = process.env.OLLAMA_MODEL || agent.model;
+    const response = await generateResponse(options, execution.id, { model, messages, tools: toolRegistry.getOllamaDefinitions(agent.allowedTools) });
+    let content = response.content;
+    for (const call of response.toolCalls ?? []) {
+      await ensureExecutionActive(agent.id, execution.id);
+      const toolStart = Date.now();
+      if (!agentRegistry.isToolAllowed(agent.id, call.name)) {
+        const message = `Agent '${agent.id}' cannot execute tool '${call.name}'.`;
+        await prisma.agentToolCall.create({ data: { executionId: execution.id, toolName: call.name,
+          arguments: call.arguments, result: { error: message }, status: 'BLOCKED', durationMs: Date.now() - toolStart } });
+        throw agentError(message, 403);
+      }
+      const context: ToolContext = { agentId: agent.id, authenticatedCustomerId: options.authenticatedCustomerId };
+      let result: JsonValue;
+      try {
+        result = jsonSchema.parse(JSON.parse(JSON.stringify(await toolRegistry.executeTool(call.name, call.arguments, context))));
+      } catch (error) {
+        await prisma.agentToolCall.create({ data: { executionId: execution.id, toolName: call.name,
+          arguments: call.arguments, result: { error: error instanceof Error ? error.message : String(error) },
+          status: 'FAILED', durationMs: Date.now() - toolStart } });
+        throw error;
+      }
+      await prisma.agentToolCall.create({ data: {
+        executionId: execution.id, toolName: call.name, arguments: call.arguments,
+        result: result === null ? Prisma.JsonNull : result, status: 'COMPLETED', durationMs: Date.now() - toolStart
+      } });
+      toolCallsExecuted.push({ name: call.name, arguments: call.arguments, result, status: 'COMPLETED' });
+      await ensureExecutionActive(agent.id, execution.id);
+      const followup = await generateResponse(options, execution.id, { model, messages: [
+        ...messages,
+        { role: 'assistant', content: response.content },
+        { role: 'user', content: `Tool '${call.name}' returned: ${JSON.stringify(result)}. Respond clearly based on this result.` }
+      ] });
+      content = followup.content;
+    }
+    await ensureExecutionActive(agent.id, execution.id);
+    const durationMs = Date.now() - start;
+    const completed = await prisma.agentExecution.updateMany({
+      where: { id: execution.id, governanceDecision: 'RUNNING' }, data: {
+      response: content, durationMs, governanceDecision: 'COMPLETED',
+      promptTokens: response.tokenUsage?.promptTokens, completionTokens: response.tokenUsage?.completionTokens
+    } });
+    if (completed.count !== 1) throw agentError(`Execution '${execution.id}' was stopped before completion.`, 409);
+    return { executionId: execution.id, agentId: agent.id, agentName: agent.name, response: content,
+      thinking: response.thinking, toolCallsExecuted, durationMs, tokens: response.tokenUsage };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const recorded = await prisma.agentExecution.findUniqueOrThrow({ where: { id: execution.id }, select: { governanceDecision: true } });
+    await prisma.agentExecution.update({ where: { id: execution.id }, data: {
+      response: message, durationMs: Date.now() - start,
+      governanceDecision: recorded.governanceDecision === 'STOPPED' ? 'STOPPED' : 'FAILED'
+    } });
+    throw error;
+  }
+}
+
+export const agentRunner = { run };
 export * from './orchestrator.js';

@@ -1,0 +1,498 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// AUTHENTICATION & ACCESS
+// ==========================================
+model User {
+  id           String        @id @default(uuid())
+  tenantId     String        @default("tenant-default") @map("tenant_id")
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  fullName     String        @map("full_name")
+  roleId       String        @map("role_id")
+  role         Role          @relation(fields: [roleId], references: [id])
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  sessions     UserSession[]
+
+  @@index([tenantId])
+  @@index([email])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  permissions String[] @default([])
+  createdAt   DateTime @default(now()) @map("created_at")
+  users       User[]
+
+  @@map("roles")
+}
+
+model UserSession {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("user_sessions")
+}
+
+// ==========================================
+// CUSTOMERS & ADDRESSES
+// ==========================================
+model Customer {
+  id             String            @id @default(uuid())
+  tenantId       String            @default("tenant-default") @map("tenant_id")
+  email          String            @unique
+  fullName       String            @map("full_name")
+  phone          String?
+  tier           String            @default("STANDARD") // STANDARD, SILVER, GOLD, VIP
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  addresses      CustomerAddress[]
+  orders         Order[]
+  tickets        SupportTicket[]
+  refundRequests RefundRequest[]
+  conversations  Conversation[]
+
+  @@index([tenantId])
+  @@index([email])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id         String   @id @default(uuid())
+  customerId String   @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  street     String
+  city       String
+  state      String
+  postalCode String   @map("postal_code")
+  country    String   @default("India")
+  isDefault  Boolean  @default(false) @map("is_default")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([customerId])
+  @@map("customer_addresses")
+}
+
+// ==========================================
+// PRODUCTS & CATEGORIES
+// ==========================================
+model ProductCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  products    Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id          String          @id @default(uuid())
+  categoryId  String          @map("category_id")
+  category    ProductCategory @relation(fields: [categoryId], references: [id])
+  name        String
+  sku         String          @unique
+  description String?
+  price       Float
+  stockQty    Int             @default(100) @map("stock_qty")
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  orderItems  OrderItem[]
+
+  @@index([categoryId])
+  @@map("products")
+}
+
+// ==========================================
+// ORDERS & SHIPMENTS
+// ==========================================
+model Order {
+  id             String          @id @default(uuid())
+  tenantId       String          @default("tenant-default") @map("tenant_id")
+  orderNumber    String          @unique @map("order_number")
+  customerId     String          @map("customer_id")
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  status         String          @default("PENDING") // PENDING, PAID, PROCESSING, SHIPPED, DELIVERED, CANCELLED, REFUNDED
+  currency       String          @default("INR")
+  subtotal       Float
+  tax            Float           @default(0)
+  shipping       Float           @default(0)
+  totalAmount    Float           @map("total_amount")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  items          OrderItem[]
+  shipment       Shipment?
+  payments       Payment[]
+  refundRequests RefundRequest[]
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(uuid())
+  orderId     String  @map("order_id")
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String  @map("product_id")
+  product     Product @relation(fields: [productId], references: [id])
+  productName String  @map("product_name")
+  sku         String
+  quantity    Int
+  unitPrice   Float   @map("unit_price")
+  totalPrice  Float   @map("total_price")
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Shipment {
+  id                String    @id @default(uuid())
+  orderId           String    @unique @map("order_id")
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  carrier           String    @default("BlueDart")
+  trackingNumber    String    @unique @map("tracking_number")
+  status            String    @default("LABEL_CREATED") // LABEL_CREATED, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, EXCEPTION
+  estimatedDelivery DateTime? @map("estimated_delivery")
+  deliveredAt       DateTime? @map("delivered_at")
+  currentLocation   String?   @map("current_location")
+  trackingHistory   Json?     @map("tracking_history")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([trackingNumber])
+  @@map("shipments")
+}
+
+// ==========================================
+// BILLING, PAYMENTS & REFUNDS
+// ==========================================
+model Payment {
+  id             String   @id @default(uuid())
+  orderId        String   @map("order_id")
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  amount         Float
+  currency       String   @default("INR")
+  status         String   @default("COMPLETED") // PENDING, COMPLETED, FAILED, REFUNDED, PARTIALLY_REFUNDED
+  paymentMethod  String   @map("payment_method") // UPI, CREDIT_CARD, DEBIT_CARD, NET_BANKING
+  maskedCard     String?  @map("masked_card")
+  transactionRef String   @unique @map("transaction_ref")
+  createdAt      DateTime @default(now()) @map("created_at")
+  refunds        Refund[]
+
+  @@index([orderId])
+  @@index([transactionRef])
+  @@map("payments")
+}
+
+model RefundRequest {
+  id                         String    @id @default(uuid())
+  tenantId                   String    @default("tenant-default") @map("tenant_id")
+  orderId                    String    @map("order_id")
+  order                      Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  customerId                 String    @map("customer_id")
+  customer                   Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  amount                     Float
+  reason                     String
+  status                     String    @default("PENDING") // PENDING, APPROVED, REJECTED, COMPLETED, CANCELLED
+  requestedBy                String    @default("customer") @map("requested_by")
+  requiresSupervisorApproval Boolean   @default(false) @map("requires_supervisor_approval")
+  requiresSecurityApproval   Boolean   @default(false) @map("requires_security_approval")
+  supervisorApprovedAt       DateTime? @map("supervisor_approved_at")
+  securityApprovedAt         DateTime? @map("security_approved_at")
+  rejectedReason             String?   @map("rejected_reason")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
+  refund                     Refund?
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@index([customerId])
+  @@index([status])
+  @@map("refund_requests")
+}
+
+model Refund {
+  id              String        @id @default(uuid())
+  refundRequestId String        @unique @map("refund_request_id")
+  refundRequest   RefundRequest @relation(fields: [refundRequestId], references: [id])
+  paymentId       String        @map("payment_id")
+  payment         Payment       @relation(fields: [paymentId], references: [id])
+  amount          Float
+  currency        String        @default("INR")
+  status          String        @default("COMPLETED") // COMPLETED, FAILED
+  transactionRef  String        @unique @map("transaction_ref")
+  processedAt     DateTime      @default(now()) @map("processed_at")
+
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+// ==========================================
+// SUPPORT TICKETS & KNOWLEDGE BASE
+// ==========================================
+model SupportTicket {
+  id              String          @id @default(uuid())
+  tenantId        String          @default("tenant-default") @map("tenant_id")
+  ticketNumber    String          @unique @map("ticket_number")
+  customerId      String          @map("customer_id")
+  customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  subject         String
+  description     String
+  priority        String          @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status          String          @default("OPEN") // OPEN, IN_PROGRESS, WAITING_ON_CUSTOMER, RESOLVED, CLOSED
+  assignedAgentId String?         @map("assigned_agent_id")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  messages        TicketMessage[]
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([ticketNumber])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id         String        @id @default(uuid())
+  ticketId   String        @map("ticket_id")
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderType String        @map("sender_type") // CUSTOMER, AGENT, SYSTEM
+  senderId   String        @map("sender_id")
+  message    String
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+model KnowledgeBaseArticle {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  category    String
+  content     String
+  tags        String[] @default([])
+  isPublished Boolean  @default(true) @map("is_published")
+  viewCount   Int      @default(0) @map("view_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([slug])
+  @@map("knowledge_base_articles")
+}
+
+// ==========================================
+// AI AGENTS & TOOL PERMISSIONS (PHASE 4)
+// ==========================================
+model AiAgent {
+  id             String                 @id // e.g. support-agent-001
+  name           String
+  riskTier       String                 @default("T3") @map("risk_tier") // T1, T2, T3
+  autonomyLevel  String                 @default("SEMI_AUTONOMOUS") @map("autonomy_level")
+  status         String                 @default("ACTIVE") // ACTIVE, IDLE, PAUSED, QUARANTINED, KILLED
+  model          String                 @default("beam:cloud")
+  description    String
+  systemPrompt   String                 @map("system_prompt")
+  clientId       String?                @unique @map("client_id")
+  clientSecret   String?                @map("client_secret")
+  lastActiveAt   DateTime?              @map("last_active_at")
+  killedAt       DateTime?              @map("killed_at")
+  killedReason   String?                @map("killed_reason")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  permissions    AgentToolPermission[]
+  executions     AgentExecution[]
+  configurations AgentConfiguration[]
+
+  @@map("ai_agents")
+}
+
+model AgentConfiguration {
+  id          String   @id @default(uuid())
+  agentId     String   @map("agent_id")
+  agent       AiAgent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  configKey   String   @map("config_key")
+  configValue String   @map("config_value")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([agentId, configKey])
+  @@map("agent_configurations")
+}
+
+model AgentToolPermission {
+  id         String   @id @default(uuid())
+  agentId    String   @map("agent_id")
+  agent      AiAgent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  toolName   String   @map("tool_name")
+  isAllowed  Boolean  @default(true) @map("is_allowed")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([agentId, toolName])
+  @@map("agent_tool_permissions")
+}
+
+model AgentExecution {
+  id                   String          @id @default(uuid())
+  agentId              String          @map("agent_id")
+  agent                AiAgent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  conversationId       String?         @map("conversation_id")
+  prompt               String
+  response             String
+  durationMs           Int             @map("duration_ms")
+  executionMode        String          @default("DIRECT_OLLAMA") @map("execution_mode")
+  promptTokens         Int?            @map("prompt_tokens")
+  completionTokens     Int?            @map("completion_tokens")
+  governanceDecision   String?         @map("governance_decision") // ALLOW, BLOCK, QUARANTINE
+  signetCorrelationId  String?         @map("signet_correlation_id")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  toolCalls            AgentToolCall[]
+
+  @@index([agentId])
+  @@index([createdAt])
+  @@map("agent_executions")
+}
+
+model AgentToolCall {
+  id          String         @id @default(uuid())
+  executionId String         @map("execution_id")
+  execution   AgentExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  toolName    String         @map("tool_name")
+  arguments   Json
+  result      Json?
+  status      String         @default("COMPLETED") // COMPLETED, FAILED, BLOCKED
+  durationMs  Int?           @map("duration_ms")
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  @@index([executionId])
+  @@index([toolName])
+  @@map("agent_tool_calls")
+}
+
+// ==========================================
+// CONVERSATIONS & CHAT ORCHESTRATION (PHASE 5)
+// ==========================================
+model Conversation {
+  id            String                @id @default(uuid())
+  customerId    String                @map("customer_id")
+  customer      Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  title         String                @default("Support Conversation")
+  activeAgentId String                @default("support-agent-001") @map("active_agent_id")
+  status        String                @default("ACTIVE") // ACTIVE, RESOLVED, CLOSED
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+  messages      ConversationMessage[]
+  handoffs      AgentHandoff[]
+
+  @@index([customerId])
+  @@map("conversations")
+}
+
+model ConversationMessage {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         String       // CUSTOMER, AGENT, SYSTEM
+  agentId        String?      @map("agent_id")
+  text           String
+  toolCallsData  Json?        @map("tool_calls_data")
+  handoffFrom    String?      @map("handoff_from")
+  handoffTo      String?      @map("handoff_to")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([conversationId])
+  @@map("conversation_messages")
+}
+
+model AgentHandoff {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromAgentId    String       @map("from_agent_id")
+  toAgentId      String       @map("to_agent_id")
+  reason         String
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([conversationId])
+  @@map("agent_handoffs")
+}
+
+model ToolExecutionLog {
+  id             String   @id @default(uuid())
+  agentId        String   @map("agent_id")
+  toolName       String   @map("tool_name")
+  conversationId String?  @map("conversation_id")
+  customerId     String?  @map("customer_id")
+  inputParams    Json     @map("input_params")
+  outputResult   Json?    @map("output_result")
+  status         String   // SUCCESS, FAILED, FORBIDDEN
+  executionMs    Int      @map("execution_ms")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([agentId])
+  @@index([toolName])
+  @@map("tool_execution_logs")
+}
+
+// ==========================================
+// AUDIT & GOVERNANCE EVENTS (PHASE 7 & 8)
+// ==========================================
+model ApplicationAuditLog {
+  id        String   @id @default(uuid())
+  tenantId  String   @default("tenant-default") @map("tenant_id")
+  eventType String   @map("event_type")
+  actorType String   @map("actor_type") // USER, AGENT, SYSTEM, SIGNET_GATEWAY
+  actorId   String   @map("actor_id")
+  resource  String
+  action    String
+  details   Json?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("application_audit_logs")
+}
+
+model GovernanceEvent {
+  id                  String   @id @default(uuid())
+  scenarioId          String?  @map("scenario_id") // SG-001 to SG-020
+  agentId             String   @map("agent_id")
+  actionType          String   @map("action_type") // MODEL_CALL, TOOL_CALL, HANDOFF, DLP_CHECK
+  executionMode       String   @map("execution_mode") // DIRECT_OLLAMA, SIGNET_MOCK, SIGNET_REAL
+  decision            String   // ALLOW, BLOCK, QUARANTINE, APPROVAL_REQUIRED
+  reason              String?
+  signetCorrelationId String?  @map("signet_correlation_id")
+  dlpCategory         String?  @map("dlp_category")
+  maskedPayload       String?  @map("masked_payload")
+  latencyMs           Int      @map("latency_ms")
+  isVerifiedReal      Boolean  @default(false) @map("is_verified_real")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@index([agentId])
+  @@index([scenarioId])
+  @@index([createdAt])
+  @@map("governance_events")
+}

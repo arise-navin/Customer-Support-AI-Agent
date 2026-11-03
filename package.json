@@ -1,0 +1,33 @@
+{
+  "name": "signet-customer-support-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-agent Customer Support AI application with Signet Governance lab",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -p \"[{name}]\" -n \"DB,BACKEND,FRONTEND\" -c \"cyan,green,magenta\" \"npm run db:start\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=@signet/backend",
+    "dev:frontend": "npm run dev --workspace=@signet/frontend",
+    "db:start": "node scripts/start-db.js",
+    "db:stop": "node scripts/stop-db.js",
+    "db:migrate": "npm run migrate --workspace=@signet/database",
+    "db:generate": "npm run generate --workspace=@signet/database",
+    "db:seed": "npm run seed --workspace=@signet/database",
+    "db:status": "node scripts/check-db.js",
+    "build": "npm run build --workspaces --if-present",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "dotenv": "^16.4.7",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}

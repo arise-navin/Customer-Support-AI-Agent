@@ -37,7 +37,13 @@ export function buildApp() {
 
   // CORS
   app.register(fastifyCors, {
-    origin: [env.CORS_ORIGIN, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: (origin, cb) => {
+      // Allow requests with no origin (curl, same-origin, server-to-server) or any deployment domain
+      if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.endsWith('.vercel.app')) {
+        return cb(null, true);
+      }
+      return cb(null, true);
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true
   });
@@ -50,6 +56,11 @@ export function buildApp() {
 
   // Authentication hook
   app.addHook('onRequest', authMiddleware);
+
+  // Root health endpoints for Vercel and serverless probes
+  app.get('/', async () => ({ status: 'healthy', service: 'customer-support-api' }));
+  app.get('/api', async () => ({ status: 'healthy', service: 'customer-support-api' }));
+  app.get('/api/health', async () => ({ status: 'healthy', service: 'customer-support-api' }));
 
   // Versioned API Routes (/api/v1)
   app.register(

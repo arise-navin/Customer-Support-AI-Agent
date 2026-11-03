@@ -19,10 +19,12 @@
     "db:seed": "npm run seed --workspace=@signet/database",
     "db:status": "node scripts/check-db.js",
     "build": "npm run build --workspaces --if-present",
+    "vercel-build": "prisma generate --schema=./prisma/schema.prisma && npm run build --workspace=@signet/frontend",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@vercel/node": "^29.0.1",
     "concurrently": "^9.1.2",
     "dotenv": "^16.4.7",
     "embedded-postgres": "^18.4.0-beta.17",

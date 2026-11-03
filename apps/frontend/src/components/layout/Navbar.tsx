@@ -1,10 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Moon, Sun, RefreshCw, Cpu, Database, Server } from 'lucide-react';
-import { fetchDetailedHealth } from '../../lib/api';
+import { apiRequest, fetchDetailedHealth } from '../../lib/api';
 import { useTheme } from '../../context/ThemeContext';
 
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
+  const queryClient = useQueryClient();
+  const logout = useMutation({
+    mutationFn: () => apiRequest('/auth/logout', { method: 'POST', body: '{}' }),
+    onSuccess: () => {
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'auth-session' });
+      queryClient.setQueryData(['auth-session'], null);
+    }
+  });
 
   const { data: health, isLoading, refetch } = useQuery({
     queryKey: ['system-health'],
@@ -51,9 +59,9 @@ export function Navbar() {
           <Cpu className="w-3.5 h-3.5 text-muted-foreground" />
           <span>Ollama:</span>
           {health?.ollama === 'connected' ? (
-            <span className="text-emerald-500 font-semibold">beam:cloud</span>
+            <span className="text-emerald-500 font-semibold">{health.activeModel}</span>
           ) : (
-            <span className="text-amber-500 font-semibold">Reachable</span>
+            <span className="text-amber-500 font-semibold">{isLoading ? 'Checking...' : 'Unreachable'}</span>
           )}
         </div>
       </div>
@@ -80,8 +88,10 @@ export function Navbar() {
 
         {/* Mode pill */}
         <div className="px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20">
-          MODE: DIRECT_OLLAMA
+          MODE: {health?.executionMode || 'Checking...'}
         </div>
+        <button id="logout" onClick={() => logout.mutate()} disabled={logout.isPending} className="text-xs font-semibold px-3 py-2 rounded-lg border border-border hover:bg-secondary">{logout.isPending ? 'Signing out...' : 'Sign out'}</button>
+        {logout.isError ? <span role="alert" className="text-xs text-rose-500">{logout.error.message}</span> : null}
       </div>
     </header>
   );

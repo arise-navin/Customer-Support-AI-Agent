@@ -1,0 +1,9 @@
+.env
+.env.*
+.pgdata/
+.git/
+.vercel/
+**/node_modules/
+**/dist/
+test-results/
+playwright-report/

@@ -4,11 +4,14 @@
     "backend": {
       "root": "apps/backend",
       "framework": "fastify",
+      "entrypoint": "src/index.ts",
+      "functions": { "src/index.ts": { "includeFiles": "{package.json,../../package.json}" } },
       "buildCommand": "prisma generate --schema=../../prisma/schema.prisma"
     },
     "frontend": {
       "root": "apps/frontend",
-      "framework": "vite"
+      "framework": "vite",
+      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
     }
   },
   "rewrites": [

@@ -1,5 +1,6 @@
 import { buildApp } from './app.js';
 import { env } from './config/env.js';
+import { IncomingMessage, ServerResponse } from 'node:http';
 
 const app = buildApp();
 
@@ -18,9 +19,12 @@ async function start() {
 }
 
 // Start listener when running as a standalone server / process
-if (process.env.NODE_ENV !== 'test') {
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
   start();
 }
 
-export default app;
+export default async function handler(request: IncomingMessage, response: ServerResponse): Promise<void> {
+  await app.ready();
+  app.server.emit('request', request, response);
+}
 export { app };

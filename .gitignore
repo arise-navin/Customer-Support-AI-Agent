@@ -38,3 +38,6 @@ Thumbs.db
 *.swp
 .idea
 .system_generated
+test-results/
+playwright-report/
+.vercel/

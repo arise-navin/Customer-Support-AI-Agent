@@ -45,6 +45,9 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
   });
 
   if (!response.ok) {
+    if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+      window.location.reload();
+    }
     const errorData = await response.json().catch(() => ({ message: response.statusText }));
     throw new Error(errorData.message || `API error: ${response.status}`);
   }

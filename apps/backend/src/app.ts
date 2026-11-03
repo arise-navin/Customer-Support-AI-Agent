@@ -1,6 +1,9 @@
 import fastifyCors from '@fastify/cors';
 import fastifySensible from '@fastify/sensible';
 import Fastify from 'fastify';
+import fastifyCookie from '@fastify/cookie';
+import fastifyJwt from '@fastify/jwt';
+import { authRoutes } from './routes/auth.js';
 import { env } from './config/env.js';
 import { authMiddleware } from './middleware/auth.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -50,6 +53,12 @@ export function buildApp() {
 
   // Sensible helpers (httpErrors, etc.)
   app.register(fastifySensible);
+  app.register(fastifyCookie);
+  app.register(fastifyJwt, {
+    secret: env.API_SECRET_KEY,
+    cookie: { cookieName: 'support_session', signed: false },
+    sign: { expiresIn: '8h' }
+  });
 
   // Central Error Handler
   app.setErrorHandler(errorHandler);
@@ -66,6 +75,7 @@ export function buildApp() {
   app.register(
     async (v1) => {
       v1.register(healthRoutes);
+      v1.register(authRoutes);
       v1.register(customerRoutes);
       v1.register(orderRoutes);
       v1.register(ticketRoutes);

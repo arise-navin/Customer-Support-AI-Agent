@@ -6,17 +6,19 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/apps/backend/src/index.js",
     "test": "vitest run"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.5",
     "@fastify/cors": "^10.0.2",
+    "@fastify/jwt": "^10.2.7",
     "@fastify/sensible": "^6.0.3",
+    "@signet/agents": "*",
     "@signet/database": "*",
     "@signet/shared": "*",
-    "@signet/agents": "*",
-    "@signet/tools": "*",
     "@signet/signet-adapter": "*",
+    "@signet/tools": "*",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.1",
     "pino": "^9.6.0",
